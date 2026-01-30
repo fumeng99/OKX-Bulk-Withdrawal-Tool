@@ -1,0 +1,11 @@
+{
+    "name": "okx-batch-withdrawal",
+    "version": "1.0.0",
+    "description": "OKX 批量提币工具",
+    "main": "server.js",
+    "scripts": {
+        "start": "node server.js"
+    },
+    "author": "@Nadiinn5",
+    "license": "MIT"
+}

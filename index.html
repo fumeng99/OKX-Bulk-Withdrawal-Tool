@@ -1,0 +1,2267 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OKX 批量提币工具</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #FFFFFF;
+            --primary-glow: rgba(255, 255, 255, 0.3);
+            --bg-dark: #0B0E11;
+            --bg-card: rgba(30, 35, 41, 0.8);
+            --bg-card-hover: rgba(43, 49, 57, 0.9);
+            --bg-input: rgba(43, 49, 57, 0.6);
+            --text-primary: #EAECEF;
+            --text-secondary: #848E9C;
+            --success: #0ECB81;
+            --success-glow: rgba(14, 203, 129, 0.3);
+            --danger: #F6465D;
+            --danger-glow: rgba(246, 70, 93, 0.3);
+            --warning: #F0B90B;
+            --border: rgba(255, 255, 255, 0.08);
+            --gradient-gold: linear-gradient(135deg, #FFFFFF 0%, #E0E0E0 50%, #CCCCCC 100%);
+            --gradient-dark: linear-gradient(180deg, #1A1D21 0%, #0B0E11 100%);
+        }
+
+        /* 选项卡样式 */
+        .config-tabs {
+            display: flex;
+            gap: 4px;
+            background: rgba(43, 49, 57, 0.5);
+            padding: 4px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        .config-tab {
+            flex: 1;
+            padding: 10px 16px;
+            background: transparent;
+            border: none;
+            border-radius: 8px;
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+
+        .config-tab:hover {
+            color: var(--text-primary);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .config-tab.active {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.05));
+            color: var(--primary);
+            box-shadow: 0 2px 8px rgba(255, 255, 255, 0.15);
+        }
+
+        .config-tab-icon {
+            font-size: 14px;
+        }
+
+        .tab-panel {
+            display: none;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .tab-panel.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-4px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--gradient-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 24px;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(ellipse at 20% 20%, rgba(255, 255, 255, 0.05) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(14, 203, 129, 0.05) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .container {
+            max-width: 1280px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 32px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .logo-icon {
+            width: 48px;
+            height: 48px;
+            background: #1E2329;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .logo-icon svg {
+            width: 28px;
+            height: 28px;
+        }
+
+        .logo h1 {
+            font-size: 28px;
+            font-weight: 700;
+            background: var(--gradient-gold);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .balance-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            padding: 16px 24px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            border: 1px solid var(--border);
+        }
+
+        .balance-card .icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--success), #00D68F);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .balance-card .info {
+            flex: 1;
+        }
+
+        .balance-card .label {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .balance-card .value {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--success);
+        }
+
+        .balance-card .btn-refresh {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .balance-card .btn-refresh:hover {
+            background: var(--bg-card-hover);
+            transform: rotate(180deg);
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        @media (max-width: 1024px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 28px;
+            border: 1px solid var(--border);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .card-header .icon-box {
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(135deg, rgba(240, 185, 11, 0.2), rgba(240, 185, 11, 0.05));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba(240, 185, 11, 0.3);
+        }
+
+        .card-header .icon-box svg {
+            width: 22px;
+            height: 22px;
+            fill: var(--primary);
+        }
+
+        .card-header h2 {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .alert {
+            background: linear-gradient(135deg, rgba(240, 185, 11, 0.15), rgba(240, 185, 11, 0.05));
+            border: 1px solid rgba(240, 185, 11, 0.3);
+            border-radius: 12px;
+            padding: 14px 18px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            color: var(--warning);
+        }
+
+        .form-group {
+            margin-bottom: 18px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 14px 18px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: var(--text-primary);
+            font-size: 14px;
+            font-family: inherit;
+            transition: all 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px var(--primary-glow);
+        }
+
+        .form-group textarea {
+            min-height: 140px;
+            resize: vertical;
+            font-family: 'Consolas', monospace;
+            font-size: 13px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .mode-selector {
+            display: flex;
+            background: var(--bg-input);
+            border-radius: 12px;
+            padding: 4px;
+            gap: 4px;
+            margin-bottom: 18px;
+        }
+
+        .mode-selector label {
+            flex: 1;
+            text-align: center;
+            padding: 12px 16px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            transition: all 0.3s;
+            margin: 0;
+        }
+
+        .mode-selector input {
+            display: none;
+        }
+
+        .mode-selector input:checked+label {
+            background: var(--primary);
+            color: #000;
+            box-shadow: 0 4px 12px var(--primary-glow);
+        }
+
+        .btn {
+            padding: 14px 28px;
+            border: none;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-family: inherit;
+        }
+
+        .btn-primary {
+            background: var(--gradient-gold);
+            color: #000;
+            box-shadow: 0 4px 20px var(--primary-glow);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 32px var(--primary-glow);
+        }
+
+        .btn-secondary {
+            background: var(--bg-input);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, var(--danger), #FF6B7A);
+            color: #fff;
+        }
+
+        .btn-full {
+            width: 100%;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .total-box {
+            background: linear-gradient(135deg, rgba(240, 185, 11, 0.1), rgba(240, 185, 11, 0.02));
+            border: 1px solid rgba(240, 185, 11, 0.2);
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-top: 16px;
+            display: none;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .total-box .label {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .total-box .value {
+            font-size: 20px;
+            font-weight: 700;
+            background: var(--gradient-gold);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: var(--bg-input);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+
+        .progress-bar .fill {
+            height: 100%;
+            background: var(--gradient-gold);
+            border-radius: 4px;
+            transition: width 0.5s;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+        }
+
+        .stat-card {
+            background: var(--bg-input);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+            border: 1px solid var(--border);
+        }
+
+        .stat-card .value {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .stat-card .label {
+            font-size: 11px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .stat-card.success .value {
+            color: var(--success);
+        }
+
+        .stat-card.error .value {
+            color: var(--danger);
+        }
+
+        .stat-card.pending .value {
+            color: var(--text-secondary);
+        }
+
+        .transfer-list {
+            max-height: 280px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+
+        .transfer-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 16px;
+            background: var(--bg-input);
+            border-radius: 12px;
+            margin-bottom: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .transfer-item .index {
+            width: 28px;
+            height: 28px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-right: 12px;
+        }
+
+        .transfer-item .address {
+            font-family: 'Consolas', monospace;
+            font-size: 12px;
+            color: var(--text-secondary);
+            flex: 1;
+        }
+
+        .transfer-item .amount {
+            font-weight: 600;
+            color: var(--primary);
+            margin: 0 16px;
+        }
+
+        .transfer-item .status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .status-pending .status-dot {
+            background: var(--text-secondary);
+        }
+
+        .status-success .status-dot {
+            background: var(--success);
+        }
+
+        .status-error .status-dot {
+            background: var(--danger);
+        }
+
+        .status-processing .status-dot {
+            background: var(--warning);
+            animation: pulse 1.5s infinite;
+        }
+
+        .status-pending {
+            color: var(--text-secondary);
+        }
+
+        .status-success {
+            color: var(--success);
+        }
+
+        .status-error {
+            color: var(--danger);
+        }
+
+        .status-processing {
+            color: var(--warning);
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .log-area {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            font-family: 'Consolas', monospace;
+            font-size: 12px;
+            max-height: 180px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+
+        .log-line {
+            padding: 4px 0;
+            line-height: 1.5;
+        }
+
+        .log-line.info {
+            color: #58A6FF;
+        }
+
+        .log-line.success {
+            color: var(--success);
+        }
+
+        .log-line.error {
+            color: var(--danger);
+        }
+
+        .log-line.warn {
+            color: var(--warning);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 48px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state .icon {
+            width: 64px;
+            height: 64px;
+            background: var(--bg-input);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+        }
+
+        .empty-state svg {
+            width: 32px;
+            height: 32px;
+            opacity: 0.5;
+        }
+
+        /* 开关切换样式 */
+        .toggle-switch {
+            position: relative;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-switch .slider {
+            width: 36px;
+            height: 20px;
+            background: var(--bg-input);
+            border-radius: 10px;
+            position: relative;
+            transition: 0.3s;
+            border: 1px solid var(--border);
+        }
+
+        .toggle-switch .slider::before {
+            content: '';
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--text-secondary);
+            top: 2px;
+            left: 2px;
+            transition: 0.3s;
+        }
+
+        .toggle-switch input:checked+.slider {
+            background: linear-gradient(135deg, var(--primary), #FFD700);
+        }
+
+        .toggle-switch input:checked+.slider::before {
+            transform: translateX(16px);
+            background: #000;
+        }
+
+        /* 网络信息显示样式 */
+        .network-info-box {
+            background: rgba(30, 35, 41, 0.6);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-bottom: 18px;
+        }
+
+        .network-info-row {
+            display: flex;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .network-info-row:last-of-type {
+            border-bottom: none;
+        }
+
+        .network-info-label {
+            color: var(--text-secondary);
+            font-size: 14px;
+            min-width: 100px;
+        }
+
+        .network-info-value {
+            font-weight: 600;
+            font-size: 14px;
+            margin-left: 8px;
+        }
+
+        .network-info-value.fee {
+            color: var(--primary);
+        }
+
+        .network-info-value.min {
+            color: var(--warning);
+        }
+
+        .network-info-value.time {
+            color: var(--text-secondary);
+        }
+
+        .network-info-usd {
+            color: var(--text-secondary);
+            font-size: 13px;
+            margin-left: 8px;
+        }
+
+        .network-refresh-btn {
+            width: 100%;
+            margin-top: 12px;
+            padding: 10px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.3s;
+        }
+
+        .network-refresh-btn:hover {
+            background: var(--bg-card-hover);
+            color: var(--text-primary);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <div class="logo-icon">
+                    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                        <!-- OKX logo - X shape -->
+                        <rect x="10" y="10" width="35" height="35" fill="#FFF" />
+                        <rect x="55" y="10" width="35" height="35" fill="#FFF" />
+                        <rect x="32.5" y="32.5" width="35" height="35" fill="#FFF" />
+                        <rect x="10" y="55" width="35" height="35" fill="#FFF" />
+                        <rect x="55" y="55" width="35" height="35" fill="#FFF" />
+                    </svg>
+                </div>
+                <h1>OKX 批量提币</h1>
+            </div>
+            <div class="balance-card">
+                <div class="icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff">
+                        <path
+                            d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm.31-8.86c-1.77-.45-2.34-.94-2.34-1.67 0-.84.79-1.43 2.1-1.43 1.38 0 1.9.66 1.94 1.64h1.71c-.05-1.34-.87-2.57-2.49-2.97V5H10.9v1.69c-1.51.32-2.72 1.3-2.72 2.81 0 1.79 1.49 2.69 3.66 3.21 1.95.46 2.34 1.15 2.34 1.87 0 .53-.39 1.39-2.1 1.39-1.6 0-2.23-.72-2.32-1.64H8.04c.1 1.7 1.36 2.66 2.86 2.97V19h2.34v-1.67c1.52-.29 2.72-1.16 2.73-2.77-.01-2.2-1.9-2.96-3.66-3.42z" />
+                    </svg>
+                </div>
+                <div class="info">
+                    <div class="label">账户余额</div>
+                    <div class="value" id="availableBalance">点击查询</div>
+                </div>
+                <button class="btn-refresh" onclick="queryBalance()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path
+                            d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" />
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <div class="main-grid">
+            <div class="card">
+                <div class="card-header">
+                    <div class="icon-box"><svg viewBox="0 0 24 24">
+                            <path
+                                d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.49.49 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" />
+                        </svg></div>
+                    <h2>配置中心</h2>
+                </div>
+
+                <!-- 选项卡导航 -->
+                <div class="config-tabs">
+                    <button class="config-tab active" onclick="switchConfigTab('api')">
+                        <span class="config-tab-icon">🔐</span> API 配置
+                    </button>
+                    <button class="config-tab" onclick="switchConfigTab('withdraw')">
+                        <span class="config-tab-icon">💰</span> 提币设置
+                    </button>
+                    <button class="config-tab" onclick="switchConfigTab('advanced')">
+                        <span class="config-tab-icon">⚙️</span> 高级选项
+                    </button>
+                </div>
+
+                <!-- API 配置面板 -->
+                <div id="tabApi" class="tab-panel active">
+                    <div class="alert"
+                        style="background: linear-gradient(135deg, rgba(14, 203, 129, 0.15), rgba(14, 203, 129, 0.05)); border-color: rgba(14, 203, 129, 0.3); color: var(--success);">
+                        🔐 安全模式已启用 - 请从控制台复制 Session Token</div>
+
+                    <div class="form-group">
+                        <label>Session Token <span style="color: var(--danger); font-size: 11px;">(从控制台复制)</span> <span
+                                id="tokenStatus"></span></label>
+                        <div style="position: relative;">
+                            <input type="text" id="sessionToken" placeholder="粘贴控制台显示的 Token"
+                                style="font-family: 'Consolas', monospace; letter-spacing: 1px;"
+                                oninput="validateToken()">
+                        </div>
+                    </div>
+
+                    <!-- 隐藏的加密密钥存储 -->
+                    <input type="hidden" id="encryptionKey">
+                    <span id="encKeyStatus" style="display: none;"></span>
+
+                    <div class="alert">⚠️ 请确保 API Key 已开启「允许提现」权限，并添加提币地址到白名单</div>
+
+                    <div class="form-group">
+                        <label>API Key</label>
+                        <input type="text" id="apiKey" placeholder="输入您的 OKX API Key">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Secret Key</label>
+                        <div style="position: relative;">
+                            <input type="password" id="secretKey" placeholder="输入您的 Secret Key"
+                                style="padding-right: 50px;">
+                            <button type="button" onclick="togglePasswordVisibility('secretKey', 'togglePwdBtn')"
+                                style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 18px; padding: 4px;"
+                                id="togglePwdBtn" title="显示/隐藏">👁️</button>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Passphrase <span style="color: var(--danger); font-size: 11px;">(创建API
+                                Key时设置的密码)</span></label>
+                        <div style="position: relative;">
+                            <input type="password" id="passphrase" placeholder="输入您的 API Passphrase"
+                                style="padding-right: 50px;">
+                            <button type="button" onclick="togglePasswordVisibility('passphrase', 'togglePassBtn')"
+                                style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 18px; padding: 4px;"
+                                id="togglePassBtn" title="显示/隐藏">👁️</button>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>代理设置 <span style="color: var(--text-secondary); font-size: 11px;">(可选)</span> <span
+                                id="proxyStatus"></span></label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" id="proxyUrl" placeholder="host:port:user:pass 或 http://host:port"
+                                style="font-family: 'Consolas', monospace; flex: 1;">
+                            <button type="button" onclick="testProxy()"
+                                style="padding: 0 16px; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-secondary); cursor: pointer; white-space: nowrap;"
+                                id="testProxyBtn">🔍 检测</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 提币设置面板 -->
+                <div id="tabWithdraw" class="tab-panel">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>币种</label>
+                            <select id="coin" onchange="onCoinChange()">
+                                <optgroup label="稳定币">
+                                    <option value="USDT" selected>USDT - 泰达币</option>
+                                    <option value="USDC">USDC - USD Coin</option>
+                                    <option value="FDUSD">FDUSD - First Digital USD</option>
+                                </optgroup>
+                                <optgroup label="主流币">
+                                    <option value="BTC">BTC - 比特币</option>
+                                    <option value="ETH">ETH - 以太坊</option>
+                                    <option value="BNB">BNB - 币安币</option>
+                                    <option value="OKB">OKB - OKX代币</option>
+                                    <option value="SOL">SOL - Solana</option>
+                                    <option value="XRP">XRP - 瑞波币</option>
+                                </optgroup>
+                                <optgroup label="热门币">
+                                    <option value="DOGE">DOGE - 狗狗币</option>
+                                    <option value="ADA">ADA - 卡尔达诺</option>
+                                    <option value="AVAX">AVAX - Avalanche</option>
+                                    <option value="DOT">DOT - 波卡</option>
+                                    <option value="MATIC">MATIC - Polygon</option>
+                                    <option value="LINK">LINK - Chainlink</option>
+                                    <option value="TRX">TRX - 波场</option>
+                                    <option value="ATOM">ATOM - Cosmos</option>
+                                    <option value="UNI">UNI - Uniswap</option>
+                                    <option value="LTC">LTC - 莱特币</option>
+                                    <option value="SHIB">SHIB - 柴犬币</option>
+                                </optgroup>
+                                <optgroup label="Layer2 & 新兴">
+                                    <option value="ARB">ARB - Arbitrum</option>
+                                    <option value="OP">OP - Optimism</option>
+                                    <option value="APT">APT - Aptos</option>
+                                    <option value="SUI">SUI - Sui</option>
+                                    <option value="NEAR">NEAR - NEAR Protocol</option>
+                                    <option value="INJ">INJ - Injective</option>
+                                </optgroup>
+                                <optgroup label="其他">
+                                    <option value="PEPE">PEPE - Pepe</option>
+                                    <option value="FIL">FIL - Filecoin</option>
+                                    <option value="ICP">ICP - Internet Computer</option>
+                                    <option value="CUSTOM">✏️ 自定义币种...</option>
+                                </optgroup>
+                            </select>
+                            <input type="text" id="customCoin" placeholder="输入币种符号 (如 TRUMP)"
+                                style="display: none; margin-top: 8px; text-transform: uppercase;">
+                        </div>
+                        <div class="form-group">
+                            <label>网络</label>
+                            <select id="network">
+                                <option value="TRC20">TRC20 (TRON)</option>
+                                <option value="ERC20">ERC20 (Ethereum)</option>
+                                <option value="Polygon">Polygon</option>
+                                <option value="Arbitrum One">Arbitrum One</option>
+                                <option value="Optimism">Optimism</option>
+                                <option value="Solana">Solana</option>
+                                <option value="Avalanche C-Chain">Avalanche C-Chain</option>
+                                <option value="TON">TON</option>
+                                <option value="Base">Base</option>
+                                <option value="zkSync Era">zkSync Era</option>
+                                <option value="Linea">Linea</option>
+                                <option value="Scroll">Scroll</option>
+                                <option value="Mantle">Mantle</option>
+                                <option value="Celo">Celo</option>
+                                <option value="Fantom">Fantom</option>
+                                <option value="OKTC">OKTC (OKX Chain)</option>
+                                <option value="Aptos">Aptos</option>
+                                <option value="Sui">Sui</option>
+                                <option value="Cosmos Hub (ATOM)">Cosmos</option>
+                                <option value="Algorand">Algorand</option>
+                                <option value="XRPL">XRP Ledger</option>
+                                <option value="Bitcoin">Bitcoin</option>
+                                <option value="Litecoin">Litecoin</option>
+                                <option value="Dogecoin">Dogecoin</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- 网络信息显示 -->
+                    <div id="networkInfoBox" class="network-info-box" style="display: none;">
+                        <div class="network-info-row">
+                            <span class="network-info-label">手续费</span>
+                            <span id="networkFeeDisplay" class="network-info-value fee">-</span>
+                            <span id="networkFeeUSD" class="network-info-usd"></span>
+                        </div>
+                        <div class="network-info-row">
+                            <span class="network-info-label">最小提现数量</span>
+                            <span id="networkMinDisplay" class="network-info-value min">-</span>
+                        </div>
+                        <div class="network-info-row">
+                            <span class="network-info-label">到账时间</span>
+                            <span id="networkTimeDisplay" class="network-info-value time">≈ 1分钟</span>
+                        </div>
+                        <button onclick="refreshNetworkInfo()" class="network-refresh-btn" title="刷新">🔄 查询</button>
+                    </div>
+
+                    <div class="form-group">
+                        <label>输入模式</label>
+                        <div class="mode-selector">
+                            <input type="radio" name="inputMode" id="modeCustom" value="custom" checked
+                                onchange="toggleInputMode()">
+                            <label for="modeCustom">自定义数量</label>
+                            <input type="radio" name="inputMode" id="modeUniform" value="uniform"
+                                onchange="toggleInputMode()">
+                            <label for="modeUniform">统一数量</label>
+                        </div>
+                    </div>
+
+                    <div class="form-group" id="uniformAmountBox" style="display: none;">
+                        <label>统一提币数量</label>
+                        <input type="number" id="uniformAmount" placeholder="每个地址的提币数量" step="0.0001" min="0">
+                    </div>
+
+                    <div class="form-group">
+                        <label id="transferListLabel">批量提币列表</label>
+                        <textarea id="transferList"
+                            placeholder="每行一条: 地址,数量&#10;例如:&#10;TXxxxxxxxx,100&#10;TYxxxxxxxx,200"></textarea>
+                    </div>
+                </div>
+
+                <!-- 高级选项面板 -->
+                <div id="tabAdvanced" class="tab-panel">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <div
+                                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <label style="margin: 0;">延迟间隔 (秒)</label>
+                                <label class="toggle-switch"
+                                    style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-secondary); cursor: pointer;">
+                                    <span>固定</span>
+                                    <input type="checkbox" id="randomDelayToggle" onchange="toggleDelayMode()">
+                                    <span class="slider"></span>
+                                    <span>随机</span>
+                                </label>
+                            </div>
+                            <div id="fixedDelayBox">
+                                <input type="number" id="delay" value="3" min="1" max="60">
+                            </div>
+                            <div id="randomDelayBox" style="display: none;">
+                                <div style="display: flex; gap: 8px; align-items: center;">
+                                    <input type="number" id="delayMin" value="2" min="1" max="60" style="flex: 1;"
+                                        placeholder="最小">
+                                    <span style="color: var(--text-secondary);">~</span>
+                                    <input type="number" id="delayMax" value="5" min="1" max="60" style="flex: 1;"
+                                        placeholder="最大">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>备注标签</label>
+                            <input type="text" id="withdrawOrderId" placeholder="可选">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>手续费说明</label>
+                        <div class="alert"
+                            style="background: linear-gradient(135deg, rgba(14, 203, 129, 0.1), rgba(14, 203, 129, 0.02)); border-color: rgba(14, 203, 129, 0.2); margin: 0;">
+                            💡 OKX 默认由发送方支付手续费：<br>
+                            • 对方收到您填写的完整金额<br>
+                            • 手续费从您账户余额中额外扣除
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="icon-box"><svg viewBox="0 0 24 24">
+                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                        </svg></div>
+                    <h2>执行状态</h2>
+                </div>
+
+                <div class="progress-section">
+                    <div class="progress-bar">
+                        <div class="fill" id="progressFill" style="width: 0%"></div>
+                    </div>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="value" id="totalCount">0</div>
+                            <div class="label">总计</div>
+                        </div>
+                        <div class="stat-card success">
+                            <div class="value" id="successCount">0</div>
+                            <div class="label">成功</div>
+                        </div>
+                        <div class="stat-card error">
+                            <div class="value" id="errorCount">0</div>
+                            <div class="label">失败</div>
+                        </div>
+                        <div class="stat-card pending">
+                            <div class="value" id="pendingCount">0</div>
+                            <div class="label">等待</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="transfer-list" id="transferItems">
+                    <div class="empty-state">
+                        <div class="icon"><svg viewBox="0 0 24 24" fill="currentColor">
+                                <path
+                                    d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z" />
+                            </svg></div>
+                        <p>暂无提币任务</p>
+                    </div>
+                </div>
+
+                <!-- 失败任务显示区域 -->
+                <div id="failedTasksBox" class="alert"
+                    style="display: none; background: linear-gradient(135deg, rgba(248, 81, 73, 0.15), rgba(248, 81, 73, 0.05)); border-color: rgba(248, 81, 73, 0.3); margin-top: 16px;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 20px;">❌</span>
+                            <span style="font-weight: 600; color: var(--error);">失败任务 (<span id="failedCount">0</span>
+                                笔)</span>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            <button onclick="retryFailed()" class="btn btn-primary"
+                                style="padding: 6px 12px; font-size: 12px;">🔄 重试失败</button>
+                            <button onclick="copyFailedAddresses()"
+                                style="background: none; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 6px 12px; color: var(--text-secondary); cursor: pointer; font-size: 12px;">📋
+                                复制地址</button>
+                        </div>
+                    </div>
+                    <div id="failedTasksList" style="max-height: 200px; overflow-y: auto; font-size: 13px;"></div>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-secondary" onclick="parseTransferList()">📋 解析列表</button>
+                    <button class="btn btn-primary btn-full" id="startBtn" onclick="startBatchWithdraw()">🚀
+                        开始批量提币</button>
+                </div>
+
+                <div class="btn-group" style="margin-top: 8px;">
+                    <button class="btn btn-secondary btn-full" onclick="exportResults()"
+                        style="background: linear-gradient(135deg, rgba(88, 166, 255, 0.2), rgba(88, 166, 255, 0.05)); border-color: rgba(88, 166, 255, 0.3); color: #58A6FF;">📤
+                        导出结果 CSV</button>
+                </div>
+
+                <div class="total-box" id="totalAmountBox">
+                    <span class="label">总提币金额</span>
+                    <span class="value" id="totalAmount">0</span>
+                </div>
+
+                <div class="total-box" id="feeBox"
+                    style="display: none; margin-top: 8px; background: linear-gradient(135deg, rgba(14, 203, 129, 0.1), rgba(14, 203, 129, 0.02)); border-color: rgba(14, 203, 129, 0.2);">
+                    <div>
+                        <span class="label">预估总手续费</span>
+                        <div style="font-size: 11px; color: var(--text-secondary); margin-top: 2px;">
+                            <span id="feePerTx">-</span> × <span id="txCount">0</span> 笔
+                        </div>
+                    </div>
+                    <span class="value" id="totalFee"
+                        style="background: linear-gradient(135deg, #0ECB81, #00D68F); -webkit-background-clip: text; background-clip: text;">0</span>
+                </div>
+
+                <div class="log-area" id="logArea">
+                    <div class="log-line info">[系统] 批量提币工具已就绪</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = '/api';
+        let transfers = [];
+        let isRunning = false;
+        let feeCache = {};
+        let networkInfoCache = {}; // 缓存网络信息
+        let coinPrecisionCache = {}; // 缓存币种精度
+
+        // 选项卡切换函数
+        function switchConfigTab(tabName) {
+            // 更新选项卡按钮状态
+            document.querySelectorAll('.config-tab').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.currentTarget.classList.add('active');
+
+            // 切换面板显示
+            document.querySelectorAll('.tab-panel').forEach(panel => {
+                panel.classList.remove('active');
+            });
+
+            const panelMap = {
+                'api': 'tabApi',
+                'withdraw': 'tabWithdraw',
+                'advanced': 'tabAdvanced'
+            };
+
+            const targetPanel = document.getElementById(panelMap[tabName]);
+            if (targetPanel) {
+                targetPanel.classList.add('active');
+            }
+
+            // 切换到「提币设置」时，如果已填写API Key，自动刷新网络信息
+            if (tabName === 'withdraw') {
+                const apiKey = document.getElementById('apiKey').value.trim();
+                const secretKey = document.getElementById('secretKey').value.trim();
+                const sessionToken = document.getElementById('sessionToken').value.trim();
+                if (apiKey && secretKey && sessionToken) {
+                    refreshNetworkInfo();
+                }
+            }
+        }
+
+        // 从 withdrawIntegerMultiple 计算精度
+        function getPrecisionFromMultiple(multiple) {
+            if (!multiple) return 8;
+            const str = String(multiple);
+            const dotIndex = str.indexOf('.');
+            if (dotIndex === -1) return 0;
+            return str.length - dotIndex - 1;
+        }
+
+        // 根据精度格式化数值
+        function formatByPrecision(value, multiple) {
+            const precision = getPrecisionFromMultiple(multiple);
+            const num = parseFloat(value);
+            if (isNaN(num)) return value;
+            // 移除尾部多余的 0
+            return num.toFixed(precision).replace(/\.?0+$/, '') || '0';
+        }
+
+        // 获取币种精度 (默认 8 位)
+        function getCoinPrecision(coin) {
+            return coinPrecisionCache[coin] || 8;
+        }
+
+        // 格式化金额显示
+        function formatAmount(value, coin) {
+            const precision = getCoinPrecision(coin);
+            const num = parseFloat(value);
+            if (isNaN(num)) return value;
+            return num.toFixed(precision).replace(/\.?0+$/, '') || '0';
+        }
+
+        // 切换延迟模式 (固定/随机)
+        function toggleDelayMode() {
+            const isRandom = document.getElementById('randomDelayToggle').checked;
+            document.getElementById('fixedDelayBox').style.display = isRandom ? 'none' : 'block';
+            document.getElementById('randomDelayBox').style.display = isRandom ? 'block' : 'none';
+        }
+
+        // 获取延迟时间 (支持固定和随机)
+        function getDelay() {
+            const isRandom = document.getElementById('randomDelayToggle').checked;
+            if (isRandom) {
+                const min = parseInt(document.getElementById('delayMin').value) || 2;
+                const max = parseInt(document.getElementById('delayMax').value) || 5;
+                return Math.floor(Math.random() * (max - min + 1)) + min;
+            } else {
+                return parseInt(document.getElementById('delay').value) || 3;
+            }
+        }
+
+        // 币种价格缓存
+        let priceCache = {};
+
+        // 查询币种实时价格
+        async function getCoinPrice(coin) {
+            // 检查缓存（5分钟内有效）
+            const cacheKey = coin.toUpperCase();
+            const cached = priceCache[cacheKey];
+            if (cached && (Date.now() - cached.time) < 300000) {
+                return cached.data;
+            }
+
+            const sessionToken = document.getElementById('sessionToken').value.trim().replace(/-/g, '');
+            if (!sessionToken) return null;
+
+            try {
+                const encKey = document.getElementById('encryptionKey').value.trim();
+                if (!encKey || encKey.length !== 64) return null;
+
+                const apiKey = document.getElementById('apiKey').value.trim();
+                const secretKey = document.getElementById('secretKey').value.trim();
+                const passphrase = document.getElementById('passphrase').value.trim();
+                if (!apiKey || !secretKey || !passphrase) return null;
+
+                const encApiKey = await encryptAES(apiKey);
+                const encSecretKey = await encryptAES(secretKey);
+                const encPassphrase = await encryptAES(passphrase);
+                const proxyUrl = document.getElementById('proxyUrl').value.trim();
+
+                const res = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-Session-Token': sessionToken },
+                    body: JSON.stringify({
+                        action: 'price',
+                        apiKey: encApiKey,
+                        secretKey: encSecretKey,
+                        passphrase: encPassphrase,
+                        proxyUrl,
+                        params: { symbol: coin }
+                    })
+                });
+                const data = await res.json();
+
+                // 缓存结果
+                priceCache[cacheKey] = { data, time: Date.now() };
+                return data;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        // 查询并显示网络信息 (手续费、最小提币、到账时间)
+        async function refreshNetworkInfo() {
+            const coin = getSelectedCoin();
+            const network = document.getElementById('network').value.trim();
+
+            if (!coin || !network) {
+                log('请先选择币种和网络', 'warn');
+                return;
+            }
+
+            const sessionToken = document.getElementById('sessionToken').value.trim().replace(/-/g, '');
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const secretKey = document.getElementById('secretKey').value.trim();
+            const passphrase = document.getElementById('passphrase').value.trim();
+
+            if (!sessionToken || !apiKey || !secretKey || !passphrase) {
+                log('请先填写 Token、API 密钥和 Passphrase', 'warn');
+                return;
+            }
+
+            const infoBox = document.getElementById('networkInfoBox');
+            infoBox.style.display = 'block';
+            document.getElementById('networkFeeDisplay').textContent = '查询中...';
+            document.getElementById('networkFeeUSD').textContent = '';
+            document.getElementById('networkMinDisplay').textContent = '查询中...';
+            document.getElementById('networkTimeDisplay').textContent = '查询中...';
+
+            try {
+                const encApiKey = await encryptAES(apiKey);
+                const encSecretKey = await encryptAES(secretKey);
+                const encPassphrase = await encryptAES(passphrase);
+                const proxyUrl = document.getElementById('proxyUrl').value.trim();
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-Session-Token': sessionToken },
+                    body: JSON.stringify({ action: 'currencies', apiKey: encApiKey, secretKey: encSecretKey, passphrase: encPassphrase, proxyUrl, params: {} })
+                });
+                const data = await response.json();
+
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                // OKX 格式: 查找 ccy 和 chain 匹配的记录
+                // chain 格式: "USDT-TRC20", 需要匹配 "币种-网络"
+                const chainName = `${coin}-${network}`;
+                const networkInfo = data.find(c => c.ccy === coin && c.chain === chainName);
+                if (!networkInfo) {
+                    document.getElementById('networkFeeDisplay').textContent = '未找到网络';
+                    document.getElementById('networkMinDisplay').textContent = '-';
+                    document.getElementById('networkTimeDisplay').textContent = '-';
+                    return;
+                }
+
+                // OKX 字段: fee (手续费), minWd (最小提币)
+                const fee = parseFloat(networkInfo.fee || networkInfo.minFee) || 0;
+                const minAmount = parseFloat(networkInfo.minWd) || 0;
+                const estimateTime = 5; // OKX 没有预计到账时间字段，默认5分钟
+
+                // 显示手续费
+                document.getElementById('networkFeeDisplay').textContent = `${fee} ${coin}`;
+
+                // 查询实时价格计算美元估值
+                try {
+                    const priceData = await getCoinPrice(coin);
+                    if (priceData && priceData.price) {
+                        const usdValue = fee * parseFloat(priceData.price);
+                        document.getElementById('networkFeeUSD').textContent = `(≈ $${usdValue.toFixed(4)})`;
+                    } else {
+                        document.getElementById('networkFeeUSD').textContent = '';
+                    }
+                } catch (priceErr) {
+                    document.getElementById('networkFeeUSD').textContent = '';
+                }
+
+                // 显示最小提现数量
+                document.getElementById('networkMinDisplay').textContent = `${minAmount} ${coin}`;
+
+                // 显示到账时间
+                document.getElementById('networkTimeDisplay').textContent = `≈ ${estimateTime}分钟`;
+
+                // 缓存信息
+                feeCache[`${coin}_${network}`] = fee;
+                networkInfoCache[`${coin}_${network}`] = { fee, minAmount, estimateTime };
+
+                log(`${coin}/${network}: 手续费 ${fee}, 最小 ${minAmount}`, 'success');
+                playSound('success');
+
+            } catch (e) {
+                document.getElementById('networkFeeDisplay').textContent = '查询失败';
+                document.getElementById('networkFeeUSD').textContent = '';
+                document.getElementById('networkMinDisplay').textContent = '-';
+                document.getElementById('networkTimeDisplay').textContent = '-';
+                log(`查询失败: ${e.message}`, 'error');
+            }
+        }
+
+        // 缓存币种网络信息
+        let coinNetworkCache = {};
+
+        // 默认网络列表（无需 API Key）
+        const defaultNetworks = {
+            'USDT': [
+                { value: 'BSC', name: 'BEP20 (BSC)', fee: '~0.29', min: '10' },
+                { value: 'TRX', name: 'TRC20', fee: '~1', min: '10' },
+                { value: 'ETH', name: 'ERC20', fee: '~3.5', min: '10' },
+                { value: 'ARBITRUM', name: 'Arbitrum One', fee: '~0.1', min: '10' },
+                { value: 'OPTIMISM', name: 'Optimism', fee: '~0.1', min: '10' },
+                { value: 'SOL', name: 'Solana', fee: '~1', min: '10' },
+                { value: 'MATIC', name: 'Polygon', fee: '~0.8', min: '10' },
+                { value: 'TON', name: 'TON', fee: '~0.1', min: '0.1' }
+            ],
+            'USDC': [
+                { value: 'BSC', name: 'BEP20 (BSC)', fee: '~0.29', min: '10' },
+                { value: 'ETH', name: 'ERC20', fee: '~3.5', min: '10' },
+                { value: 'SOL', name: 'Solana', fee: '~1', min: '10' },
+                { value: 'ARBITRUM', name: 'Arbitrum One', fee: '~0.1', min: '10' },
+                { value: 'MATIC', name: 'Polygon', fee: '~0.8', min: '10' }
+            ],
+            'BNB': [
+                { value: 'BSC', name: 'BEP20 (BSC)', fee: '~0.00001', min: '0.0005' },
+                { value: 'OPBNB', name: 'opBNB', fee: '~0.00001', min: '0.001' }
+            ],
+            'ETH': [
+                { value: 'ETH', name: 'ERC20', fee: '~0.001', min: '0.01' },
+                { value: 'BSC', name: 'BEP20 (BSC)', fee: '~0.00005', min: '0.001' },
+                { value: 'ARBITRUM', name: 'Arbitrum One', fee: '~0.0001', min: '0.001' },
+                { value: 'OPTIMISM', name: 'Optimism', fee: '~0.0001', min: '0.001' }
+            ],
+            'BTC': [
+                { value: 'BTC', name: 'Bitcoin', fee: '~0.0001', min: '0.001' }
+            ],
+            'SOL': [
+                { value: 'SOL', name: 'Solana', fee: '~0.01', min: '0.02' }
+            ],
+            'XRP': [
+                { value: 'XRP', name: 'XRP', fee: '~0.25', min: '20' }
+            ],
+            'DOGE': [
+                { value: 'DOGE', name: 'Dogecoin', fee: '~5', min: '10' }
+            ],
+            'TRX': [
+                { value: 'TRX', name: 'TRC20', fee: '~1', min: '10' }
+            ],
+            '_default': [
+                { value: 'BSC', name: 'BEP20 (BSC)', fee: '?', min: '?' },
+                { value: 'ETH', name: 'ERC20', fee: '?', min: '?' },
+                { value: 'TRX', name: 'TRC20', fee: '?', min: '?' }
+            ]
+        };
+
+        // 动态加载币种支持的网络
+        async function loadNetworksForCoin(coin, forceApi = false) {
+            const networkSelect = document.getElementById('network');
+            const sessionToken = document.getElementById('sessionToken').value.trim().replace(/-/g, '');
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const secretKey = document.getElementById('secretKey').value.trim();
+            const passphrase = document.getElementById('passphrase').value.trim();
+
+            // 没有 API 密钥或 Passphrase 时使用默认网络列表
+            if (!forceApi && (!sessionToken || !apiKey || !secretKey || !passphrase)) {
+                const nets = defaultNetworks[coin] || defaultNetworks['_default'];
+                updateNetworkSelect(nets, coin, true);
+                if (apiKey && secretKey && !passphrase) {
+                    log('提示: 请填写 Passphrase 后可获取实时网络信息', 'info');
+                } else if (!apiKey || !secretKey) {
+                    log('提示: 配置 API Key 后可获取实时网络信息', 'info');
+                }
+                return;
+            }
+
+            // 使用缓存
+            if (coinNetworkCache[coin]) {
+                updateNetworkSelect(coinNetworkCache[coin], coin);
+                return;
+            }
+
+            networkSelect.innerHTML = '<option value="">加载中...</option>';
+            networkSelect.disabled = true;
+
+            try {
+                const encApiKey = await encryptAES(apiKey);
+                const encSecretKey = await encryptAES(secretKey);
+                const encPassphrase = await encryptAES(passphrase);
+                const proxyUrl = document.getElementById('proxyUrl').value.trim();
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-Session-Token': sessionToken },
+                    body: JSON.stringify({ action: 'currencies', apiKey: encApiKey, secretKey: encSecretKey, passphrase: encPassphrase, proxyUrl, params: {} })
+                });
+                const data = await response.json();
+
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                // OKX 返回格式: [{ccy: 'USDT', chain: 'USDT-TRC20', canWd: true, minFee: '1', minWd: '10', ...}]
+                // 过滤当前币种支持提币的网络
+                const coinNetworks = data.filter(c => c.ccy === coin && c.canWd === true);
+
+                if (coinNetworks.length === 0) {
+                    networkSelect.innerHTML = '<option value="">未找到网络</option>';
+                    networkSelect.disabled = false;
+                    return;
+                }
+
+                // 提取网络信息 (chain 格式: "USDT-TRC20", 需要提取网络部分 "TRC20")
+                // 网络名称友好映射
+                const networkNameMap = {
+                    'TRC20': 'TRC20 (Tron)',
+                    'ERC20': 'ERC20 (Ethereum)',
+                    'BEP20': 'BEP20 (BSC)',
+                    'Polygon': 'Polygon',
+                    'Arbitrum One': 'Arbitrum One',
+                    'Optimism': 'Optimism',
+                    'Solana': 'Solana',
+                    'Bitcoin': 'Bitcoin',
+                    'TON': 'TON',
+                    'OKTC': 'OKC (OKTC)',
+                    'Avalanche C-Chain': 'Avalanche C',
+                    'zkSync Era': 'zkSync Era',
+                    'Base': 'Base',
+                    'Linea': 'Linea'
+                };
+
+                const networks = coinNetworks.map(n => {
+                    // 提取网络名称：从 chain 中去掉币种前缀 (例如 "USDT-TRC20" -> "TRC20")
+                    const networkName = n.chain.replace(`${coin}-`, '');
+                    return {
+                        value: networkName,
+                        name: networkNameMap[networkName] || networkName,
+                        fee: n.fee || n.minFee || '?',  // OKX: fee 是实际手续费
+                        min: n.minWd || '?',
+                        precision: 8
+                    };
+                });
+
+                // 缓存精度信息
+                if (networks.length > 0) {
+                    coinPrecisionCache[coin] = networks[0].precision;
+                }
+
+                // 缓存
+                coinNetworkCache[coin] = networks;
+                updateNetworkSelect(networks, coin);
+
+            } catch (e) {
+                networkSelect.innerHTML = '<option value="BSC">BEP20</option><option value="ETH">ERC20</option><option value="TRX">TRC20</option>';
+                networkSelect.disabled = false;
+                log(`加载网络失败: ${e.message}`, 'warn');
+            }
+        }
+
+        // 更新网络下拉列表
+        function updateNetworkSelect(networks, coin, isDefault = false) {
+            const networkSelect = document.getElementById('network');
+            networkSelect.disabled = false;
+
+            if (networks.length === 0) {
+                networkSelect.innerHTML = '<option value="">暂不支持提币</option>';
+                return;
+            }
+
+            // 优先选择 BSC，否则选第一个
+            const preferBSC = networks.find(n => n.value === 'BSC');
+            const defaultNetwork = preferBSC || networks[0];
+
+            // 只有精确数据时才显示手续费
+            networkSelect.innerHTML = networks.map(n => {
+                const feeText = isDefault ? '' : ` (${n.fee} ${coin})`;
+                return `<option value="${n.value}" ${n.value === defaultNetwork.value ? 'selected' : ''}>${n.name}${feeText}</option>`;
+            }).join('');
+
+            // 自动显示手续费信息（只在有精确数据时显示）
+            if (defaultNetwork && !isDefault) {
+                document.getElementById('networkInfoBox').style.display = 'block';
+                document.getElementById('networkFeeDisplay').textContent = `${defaultNetwork.fee} ${coin}`;
+                document.getElementById('networkMinDisplay').textContent = `${defaultNetwork.min} ${coin}`;
+                document.getElementById('networkTimeDisplay').textContent = '≈ 1-5分钟';
+                feeCache[`${coin}_${defaultNetwork.value}`] = parseFloat(defaultNetwork.fee) || 0;
+
+                // 查询实时价格显示美元估值
+                getCoinPrice(coin).then(priceData => {
+                    if (priceData && priceData.price) {
+                        const fee = parseFloat(defaultNetwork.fee) || 0;
+                        const usdValue = fee * parseFloat(priceData.price);
+                        document.getElementById('networkFeeUSD').textContent = `(≈ $${usdValue.toFixed(8)})`;
+                    } else {
+                        document.getElementById('networkFeeUSD').textContent = '';
+                    }
+                }).catch(() => {
+                    document.getElementById('networkFeeUSD').textContent = '';
+                });
+            } else {
+                document.getElementById('networkInfoBox').style.display = 'none';
+            }
+        }
+
+        // 页面加载时显示网络信息框
+        window.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('networkInfoBox').style.display = 'block';
+        });
+
+        // 显示失败任务列表
+        function showFailedTasks() {
+            const failed = transfers.filter(t => t.status === 'error');
+            const box = document.getElementById('failedTasksBox');
+            const list = document.getElementById('failedTasksList');
+            const count = document.getElementById('failedCount');
+
+            if (failed.length === 0) {
+                box.style.display = 'none';
+                return;
+            }
+
+            box.style.display = 'block';
+            count.textContent = failed.length;
+
+            const coin = getSelectedCoin();
+            list.innerHTML = failed.map((t, i) => `
+                <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <div style="flex: 1;">
+                        <code style="font-size: 12px; color: var(--text-secondary);">${t.address.slice(0, 12)}...${t.address.slice(-8)}</code>
+                        <span style="margin-left: 8px; color: var(--primary);">${t.amount} ${coin}</span>
+                    </div>
+                    <div style="color: var(--error); font-size: 12px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${t.error || '未知错误'}">
+                        ${t.error || '未知错误'}
+                    </div>
+                </div>
+            `).join('');
+
+            playSound('error');
+        }
+
+        // 重试失败的任务
+        async function retryFailed() {
+            const failed = transfers.filter(t => t.status === 'error');
+            if (failed.length === 0) {
+                log('没有失败任务', 'info');
+                return;
+            }
+
+            if (!confirm(`确认重试 ${failed.length} 笔失败任务？`)) return;
+
+            // 重置失败任务状态为 pending
+            failed.forEach(t => {
+                t.status = 'pending';
+                t.error = null;
+            });
+            updateUI();
+
+            // 隐藏失败列表
+            document.getElementById('failedTasksBox').style.display = 'none';
+
+            log(`准备重试 ${failed.length} 笔失败任务`, 'info');
+
+            // 触发批量提币
+            startBatchWithdraw();
+        }
+
+        // 复制失败地址
+        function copyFailedAddresses() {
+            const failed = transfers.filter(t => t.status === 'error');
+            if (failed.length === 0) {
+                log('没有失败任务', 'info');
+                return;
+            }
+
+            const coin = getSelectedCoin();
+            const text = failed.map(t => `${t.address},${t.amount}`).join('\n');
+
+            navigator.clipboard.writeText(text).then(() => {
+                log(`已复制 ${failed.length} 个失败地址到剪贴板`, 'success');
+                playSound('success');
+            }).catch(e => {
+                log('复制失败: ' + e.message, 'error');
+            });
+        }
+
+        // 音频提示 (使用 Web Audio API 生成简单音效)
+        function playSound(type) {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+
+                if (type === 'success') {
+                    oscillator.frequency.setValueAtTime(800, audioCtx.currentTime);
+                    oscillator.frequency.setValueAtTime(1000, audioCtx.currentTime + 0.1);
+                } else if (type === 'error') {
+                    oscillator.frequency.setValueAtTime(300, audioCtx.currentTime);
+                    oscillator.frequency.setValueAtTime(200, audioCtx.currentTime + 0.1);
+                } else {
+                    oscillator.frequency.setValueAtTime(600, audioCtx.currentTime);
+                }
+
+                gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+
+                oscillator.start(audioCtx.currentTime);
+                oscillator.stop(audioCtx.currentTime + 0.2);
+            } catch (e) { /* 静默失败 */ }
+        }
+
+        // 代理检测
+        async function testProxy() {
+            const proxyUrl = document.getElementById('proxyUrl').value.trim();
+            const statusEl = document.getElementById('proxyStatus');
+            const btn = document.getElementById('testProxyBtn');
+
+            if (!proxyUrl) {
+                statusEl.innerHTML = '<span style="color: var(--warning);">请输入代理地址</span>';
+                return;
+            }
+
+            const sessionToken = getSessionToken();
+            if (!sessionToken) {
+                statusEl.innerHTML = '<span style="color: var(--danger);">请先输入 Session Token</span>';
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = '检测中...';
+            statusEl.innerHTML = '<span style="color: var(--text-secondary);">⏳</span>';
+
+            try {
+                const response = await fetch(API_URL.replace('/api', '/api/proxy-test'), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Session-Token': sessionToken
+                    },
+                    body: JSON.stringify({ proxyUrl })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    statusEl.innerHTML = `<span style="color: var(--success);">✓ ${result.ip} (${result.country}) ${result.latency}ms</span>`;
+                } else {
+                    statusEl.innerHTML = `<span style="color: var(--danger);">✗ ${result.error}</span>`;
+                }
+            } catch (e) {
+                statusEl.innerHTML = `<span style="color: var(--danger);">✗ 请求失败</span>`;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🔍 检测';
+            }
+        }
+
+        // Token 验证状态显示 + 自动同步加密密钥
+        function validateToken() {
+            const token = document.getElementById('sessionToken').value.trim().replace(/-/g, '');
+            const statusEl = document.getElementById('tokenStatus');
+            if (token.length === 0) {
+                statusEl.innerHTML = '';
+            } else if (token.length === 32) {
+                statusEl.innerHTML = '<span style="color: var(--success);">✓ 格式正确</span>';
+                // 自动同步加密密钥
+                const encKey = document.getElementById('encryptionKey').value;
+                if (!encKey) {
+                    syncEncryptionKey();
+                }
+            } else {
+                statusEl.innerHTML = `<span style="color: var(--warning);">(${token.length}/32)</span>`;
+            }
+        }
+
+        // 从服务器同步加密密钥
+        async function syncEncryptionKey() {
+            const sessionToken = document.getElementById('sessionToken').value.trim().replace(/-/g, '');
+            if (!sessionToken || sessionToken.length !== 32) {
+                log('请先输入正确的 Session Token', 'warn');
+                return;
+            }
+
+            const statusEl = document.getElementById('encKeyStatus');
+            statusEl.innerHTML = '<span style="color: var(--warning);">同步中...</span>';
+
+            try {
+                const res = await fetch(`${API_URL.replace('/api', '')}/api/key`, {
+                    method: 'GET',
+                    headers: { 'X-Session-Token': sessionToken }
+                });
+                const data = await res.json();
+
+                if (data.error) {
+                    statusEl.innerHTML = `<span style="color: var(--danger);">❌ ${data.error}</span>`;
+                    log(`同步失败: ${data.error}`, 'error');
+                    return;
+                }
+
+                if (data.encryptionKey) {
+                    document.getElementById('encryptionKey').value = data.encryptionKey;
+                    statusEl.innerHTML = '<span style="color: var(--success);">✓ 已同步</span>';
+                    log('加密密钥同步成功', 'success');
+                }
+            } catch (e) {
+                statusEl.innerHTML = '<span style="color: var(--danger);">❌ 同步失败</span>';
+                log(`同步失败: ${e.message}`, 'error');
+            }
+        }
+
+        // AES-256-CBC 加密函数
+        async function encryptAES(plainText) {
+            const encKeyHex = document.getElementById('encryptionKey').value.trim();
+            if (!encKeyHex || encKeyHex.length !== 64) {
+                throw new Error('请输入正确的 Encryption Key');
+            }
+
+            // 将 hex 字符串转换为 Uint8Array
+            const keyBytes = new Uint8Array(encKeyHex.match(/.{2}/g).map(b => parseInt(b, 16)));
+
+            // 生成随机 IV (16 bytes)
+            const iv = crypto.getRandomValues(new Uint8Array(16));
+
+            // 导入密钥
+            const cryptoKey = await crypto.subtle.importKey(
+                'raw', keyBytes, { name: 'AES-CBC' }, false, ['encrypt']
+            );
+
+            // 加密数据
+            const encoder = new TextEncoder();
+            const data = encoder.encode(plainText);
+            const encrypted = await crypto.subtle.encrypt(
+                { name: 'AES-CBC', iv }, cryptoKey, data
+            );
+
+            // 拼接 iv + encrypted 转为 hex
+            const ivHex = Array.from(iv).map(b => b.toString(16).padStart(2, '0')).join('');
+            const encHex = Array.from(new Uint8Array(encrypted)).map(b => b.toString(16).padStart(2, '0')).join('');
+
+            return ivHex + encHex;
+        }
+
+        // 密码显示/隐藏切换
+        function togglePasswordVisibility(inputId, btnId) {
+            const pwdInput = document.getElementById(inputId);
+            const btn = document.getElementById(btnId);
+            if (pwdInput.type === 'password') {
+                pwdInput.type = 'text';
+                btn.textContent = '🙈';
+                btn.title = '隐藏';
+            } else {
+                pwdInput.type = 'password';
+                btn.textContent = '👁️';
+                btn.title = '显示';
+            }
+        }
+
+        // 导出结果为 CSV
+        function exportResults() {
+            if (transfers.length === 0) {
+                log('没有可导出的数据', 'warn');
+                return;
+            }
+            const coin = getSelectedCoin();
+            const headers = ['序号', '地址', '金额', '状态', '错误信息'];
+            const rows = transfers.map((t, i) => [
+                i + 1,
+                t.address,
+                t.amount,
+                t.status === 'success' ? '成功' : t.status === 'error' ? '失败' : '等待',
+                t.error || ''
+            ]);
+
+            const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+            const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `提币结果_${coin}_${new Date().toISOString().slice(0, 10)}.csv`;
+            link.click();
+            log('CSV 导出成功', 'success');
+            playSound('success');
+        }
+
+        // 页面加载完成后自动聚焦 Token 输入框
+        window.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('sessionToken').focus();
+            log('提示: 请从控制台复制 Session Token', 'info');
+        });
+
+        // 获取 Session Token
+        function getSessionToken() {
+            const token = document.getElementById('sessionToken').value.trim().replace(/-/g, '');
+            if (!token) {
+                log('请先输入 Session Token', 'error');
+                return null;
+            }
+            return token;
+        }
+
+        // 封装的 API 请求函数 (OKX 版本 - 包含 passphrase)
+        async function apiRequest(action, params = {}) {
+            const sessionToken = getSessionToken();
+            if (!sessionToken) return null;
+
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const secretKey = document.getElementById('secretKey').value.trim();
+            const passphrase = document.getElementById('passphrase').value.trim();
+            const proxyUrl = document.getElementById('proxyUrl').value.trim();
+
+            if (!passphrase) {
+                log('请输入 Passphrase', 'error');
+                return null;
+            }
+
+            // 加密 apiKey, secretKey 和 passphrase
+            let encApiKey, encSecretKey, encPassphrase;
+            try {
+                encApiKey = await encryptAES(apiKey);
+                encSecretKey = await encryptAES(secretKey);
+                encPassphrase = await encryptAES(passphrase);
+            } catch (e) {
+                log(e.message, 'error');
+                return null;
+            }
+
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Session-Token': sessionToken
+                },
+                body: JSON.stringify({ action, apiKey: encApiKey, secretKey: encSecretKey, passphrase: encPassphrase, proxyUrl, params })
+            });
+
+            return response;
+        }
+
+        function log(message, type = 'info') {
+            const logArea = document.getElementById('logArea');
+            const time = new Date().toLocaleTimeString();
+            const line = document.createElement('div');
+            line.className = `log-line ${type}`;
+            line.textContent = `[${time}] ${message}`;
+            logArea.appendChild(line);
+            logArea.scrollTop = logArea.scrollHeight;
+        }
+
+        function toggleInputMode() {
+            const mode = document.querySelector('input[name="inputMode"]:checked').value;
+            const uniformBox = document.getElementById('uniformAmountBox');
+            const label = document.getElementById('transferListLabel');
+            const textarea = document.getElementById('transferList');
+            if (mode === 'uniform') {
+                uniformBox.style.display = 'block';
+                label.textContent = '批量提币列表 (每行一个地址)';
+                textarea.placeholder = '每行一个地址:\nTXxxxxxxxx\nTYxxxxxxxx';
+            } else {
+                uniformBox.style.display = 'none';
+                label.textContent = '批量提币列表';
+                textarea.placeholder = '每行一条: 地址,数量\n例如:\nTXxxxxxxxx,100\nTYxxxxxxxx,200';
+            }
+        }
+
+        async function getNetworkFee(coin, network) {
+            const cacheKey = `${coin}_${network}`;
+            if (feeCache[cacheKey]) return feeCache[cacheKey];
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const secretKey = document.getElementById('secretKey').value.trim();
+            const passphrase = document.getElementById('passphrase').value.trim();
+            if (!apiKey || !secretKey || !passphrase) return null;
+            const sessionToken = document.getElementById('sessionToken').value.trim().replace(/-/g, '');
+            if (!sessionToken) return null;
+            const encKey = document.getElementById('encryptionKey').value.trim();
+            if (!encKey || encKey.length !== 64) return null;
+            try {
+                const encApiKey = await encryptAES(apiKey);
+                const encSecretKey = await encryptAES(secretKey);
+                const encPassphrase = await encryptAES(passphrase);
+                const proxyUrl = document.getElementById('proxyUrl').value.trim();
+                const res = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-Session-Token': sessionToken },
+                    body: JSON.stringify({ action: 'currencies', apiKey: encApiKey, secretKey: encSecretKey, passphrase: encPassphrase, proxyUrl, params: {} })
+                });
+                const data = await res.json();
+                if (data.error || !Array.isArray(data)) return null;
+
+                // OKX 返回格式: [{ccy: 'USDT', chain: 'USDT-TRC20', fee: '1', minWd: '10', ...}]
+                const chainName = `${coin}-${network}`;
+                const chainInfo = data.find(c => c.ccy === coin && c.chain === chainName);
+                if (!chainInfo) return null;
+
+                const fee = parseFloat(chainInfo.fee || chainInfo.minFee);
+                feeCache[cacheKey] = fee;
+                return fee;
+            } catch (e) { return null; }
+        }
+
+        async function updateFeeDisplay() {
+            const coin = getSelectedCoin();
+            const network = document.getElementById('network').value;
+            const count = transfers.length;
+            if (count === 0) { document.getElementById('feeBox').style.display = 'none'; return; }
+            const fee = await getNetworkFee(coin, network);
+            if (fee !== null) {
+                const totalFee = fee * count;
+                const fmt = (v) => v.toFixed(8).replace(/\.?0+$/, '');
+                document.getElementById('feePerTx').textContent = `${fmt(fee)} ${coin}`;
+                document.getElementById('txCount').textContent = count;
+                document.getElementById('totalFee').textContent = `${fmt(totalFee)} ${coin}`;
+                document.getElementById('feeBox').style.display = 'flex';
+                log(`手续费: ${fmt(fee)} ${coin}/笔, 共 ${count} 笔, 总计 ${fmt(totalFee)} ${coin}`, 'info');
+            }
+        }
+
+        // 查询OKX资金账户余额
+        async function queryBalance() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const secretKey = document.getElementById('secretKey').value.trim();
+            const passphrase = document.getElementById('passphrase').value.trim();
+            if (!apiKey || !secretKey || !passphrase) { log('请先填写 API Key 和 Passphrase', 'warn'); return; }
+            const sessionToken = document.getElementById('sessionToken').value.trim().replace(/-/g, '');
+            if (!sessionToken) { log('请先输入 Session Token', 'error'); return; }
+            const encKey = document.getElementById('encryptionKey').value.trim();
+            if (!encKey || encKey.length !== 64) { log('请先输入正确的 Encryption Key', 'error'); return; }
+            try {
+                document.getElementById('availableBalance').textContent = '查询中...';
+                const encApiKey = await encryptAES(apiKey);
+                const encSecretKey = await encryptAES(secretKey);
+                const encPassphrase = await encryptAES(passphrase);
+                const proxyUrl = document.getElementById('proxyUrl').value.trim();
+                const res = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-Session-Token': sessionToken },
+                    body: JSON.stringify({ action: 'balance', apiKey: encApiKey, secretKey: encSecretKey, passphrase: encPassphrase, proxyUrl, params: {} })
+                });
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+                const coin = getSelectedCoin();
+                // OKX 余额返回格式: [{ccy: 'USDT', bal: '100', availBal: '100'}]
+                const balance = data.find(b => b.ccy === coin);
+                const free = balance ? parseFloat(balance.availBal).toFixed(4) : '0';
+                document.getElementById('availableBalance').textContent = `${free} ${coin}`;
+                log(`余额: ${free} ${coin}`, 'success');
+            } catch (e) {
+                document.getElementById('availableBalance').textContent = '查询失败';
+                log(`查询失败: ${e.message}`, 'error');
+            }
+        }
+
+        function parseTransferList() {
+            const text = document.getElementById('transferList').value.trim();
+            if (!text) { log('请输入提币列表', 'warn'); return; }
+            const mode = document.querySelector('input[name="inputMode"]:checked').value;
+            const uniformAmount = parseFloat(document.getElementById('uniformAmount').value);
+            if (mode === 'uniform' && (!uniformAmount || uniformAmount <= 0)) {
+                log('请输入统一数量', 'error'); return;
+            }
+            transfers = [];
+            const lines = text.split('\n').filter(l => l.trim());
+            for (const line of lines) {
+                let address, amount;
+                if (mode === 'uniform') {
+                    address = line.trim().split(/[,，\t]/)[0].trim();
+                    amount = uniformAmount;
+                } else {
+                    const parts = line.split(/[,，\t]/).map(p => p.trim());
+                    if (parts.length >= 2) { address = parts[0]; amount = parseFloat(parts[1]); }
+                }
+                if (address && !isNaN(amount) && amount > 0) {
+                    transfers.push({ address, amount, status: 'pending', txId: null, error: null });
+                }
+            }
+            if (transfers.length === 0) { log('未解析到有效记录', 'error'); return; }
+            const coin = getSelectedCoin();
+            const total = transfers.reduce((s, t) => s + t.amount, 0);
+            document.getElementById('totalAmountBox').style.display = 'flex';
+            document.getElementById('totalAmount').textContent = `${total.toFixed(4)} ${coin}`;
+            log(`解析 ${transfers.length} 条, 总额: ${total.toFixed(4)} ${coin}`, 'success');
+            updateUI();
+            updateFeeDisplay();
+        }
+
+        function updateUI() {
+            const container = document.getElementById('transferItems');
+            const coin = getSelectedCoin();
+            const success = transfers.filter(t => t.status === 'success').length;
+            const error = transfers.filter(t => t.status === 'error').length;
+            const pending = transfers.filter(t => t.status === 'pending' || t.status === 'processing').length;
+            document.getElementById('totalCount').textContent = transfers.length;
+            document.getElementById('successCount').textContent = success;
+            document.getElementById('errorCount').textContent = error;
+            document.getElementById('pendingCount').textContent = pending;
+            document.getElementById('progressFill').style.width = `${transfers.length > 0 ? (success + error) / transfers.length * 100 : 0}%`;
+            if (transfers.length === 0) {
+                container.innerHTML = '<div class="empty-state"><p>暂无提币任务</p></div>';
+                return;
+            }
+            container.innerHTML = transfers.map((t, i) => `
+                <div class="transfer-item">
+                    <div class="index">${i + 1}</div>
+                    <div class="address">${t.address.slice(0, 10)}...${t.address.slice(-6)}</div>
+                    <div class="amount">${t.amount} ${coin}</div>
+                    <div class="status status-${t.status}">
+                        <span class="status-dot"></span>
+                        ${t.status === 'pending' ? '等待' : t.status === 'processing' ? '处理中' : t.status === 'success' ? '成功' : (t.error || '失败').slice(0, 12)}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // OKX 提币请求
+        async function withdraw(address, amount, coin, network, encApiKey, encSecretKey, encPassphrase) {
+            const sessionToken = document.getElementById('sessionToken').value.trim().replace(/-/g, '');
+            const proxyUrl = document.getElementById('proxyUrl').value.trim();
+
+            // OKX chain 格式: 币种-网络，如 USDT-TRC20
+            const chain = `${coin}-${network}`;
+
+            const res = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Session-Token': sessionToken },
+                body: JSON.stringify({
+                    action: 'withdraw', apiKey: encApiKey, secretKey: encSecretKey, passphrase: encPassphrase, proxyUrl,
+                    params: {
+                        ccy: coin,           // OKX 币种
+                        chain: chain,        // OKX 链名称 (币种-网络)
+                        toAddr: address,     // OKX 地址
+                        amt: amount          // OKX 金额
+                    }
+                })
+            });
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+            return data;
+        }
+
+        async function startBatchWithdraw() {
+            if (isRunning) {
+                isRunning = false;
+                document.getElementById('startBtn').textContent = '🚀 开始批量提币';
+                document.getElementById('startBtn').classList.remove('btn-danger');
+                document.getElementById('startBtn').classList.add('btn-primary');
+                log('已停止', 'warn');
+                return;
+            }
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const secretKey = document.getElementById('secretKey').value.trim();
+            const passphrase = document.getElementById('passphrase').value.trim();
+            const coin = getSelectedCoin();
+            const network = document.getElementById('network').value.trim();
+            if (!apiKey || !secretKey || !passphrase) { log('请填写 API Key 和 Passphrase', 'error'); return; }
+            const sessionToken = document.getElementById('sessionToken').value.trim().replace(/-/g, '');
+            if (!sessionToken) { log('请先输入 Session Token', 'error'); return; }
+
+            // 检查加密密钥
+            const encKey = document.getElementById('encryptionKey').value.trim();
+            if (!encKey || encKey.length !== 64) {
+                log('请检查加密密钥是否已同步 (应为64位)', 'error');
+                return;
+            }
+
+            if (transfers.length === 0) { log('请先解析列表', 'error'); return; }
+            const pending = transfers.filter(t => t.status === 'pending');
+            if (pending.length === 0) { log('没有待处理任务', 'warn'); return; }
+
+            // 获取当前手续费
+            const feeKey = `${coin}_${network}`;
+            const withdrawFee = feeCache[feeKey] || 0;
+            if (!confirm(`确认提币 ${pending.length} 笔？\n手续费: ${withdrawFee} ${coin}/笔 (从余额另扣)`)) return;
+
+            // 预先加密 API 密钥和 Passphrase
+            let encApiKey, encSecretKey, encPassphrase;
+            try {
+                encApiKey = await encryptAES(apiKey);
+                encSecretKey = await encryptAES(secretKey);
+                encPassphrase = await encryptAES(passphrase);
+            } catch (e) {
+                log(`加密失败: ${e.message}`, 'error');
+                return;
+            }
+
+            isRunning = true;
+            document.getElementById('startBtn').textContent = '⏹️ 停止';
+            document.getElementById('startBtn').classList.remove('btn-primary');
+            document.getElementById('startBtn').classList.add('btn-danger');
+            log(`开始提币: ${pending.length} 笔 (手续费 ${withdrawFee} ${coin}/笔)`, 'info');
+
+            for (let i = 0; i < transfers.length; i++) {
+                if (!isRunning) break;
+                const t = transfers[i];
+                if (t.status !== 'pending') continue;
+                t.status = 'processing';
+                updateUI();
+
+                // OKX: amt 就是对方收到的金额，手续费从您账户额外扣除
+                const actualAmount = parseFloat(t.amount);
+
+                log(`[${i + 1}] 提币 ${actualAmount} ${coin} → ${t.address.slice(0, 10)}... (手续费 ${withdrawFee} 另扣)`, 'info');
+                try {
+                    const result = await withdraw(t.address, actualAmount, coin, network, encApiKey, encSecretKey, encPassphrase);
+                    t.status = 'success';
+                    t.txId = result.wdId;  // OKX 返回 wdId
+                    log(`[${i + 1}] ✅ 成功 (对方收到 ${actualAmount} ${coin})`, 'success');
+                    playSound('success');
+                } catch (e) {
+                    t.status = 'error';
+                    t.error = e.message;
+                    log(`[${i + 1}] ❌ ${e.message}`, 'error');
+                    playSound('error');
+                }
+                updateUI();
+                if (isRunning && i < transfers.length - 1) {
+                    const delayTime = getDelay();
+                    const isRandom = document.getElementById('randomDelayToggle').checked;
+                    if (isRandom) {
+                        log(`等待 ${delayTime} 秒 (随机)...`, 'info');
+                    }
+                    await new Promise(r => setTimeout(r, delayTime * 1000));
+                }
+            }
+            isRunning = false;
+            document.getElementById('startBtn').textContent = '🚀 开始批量提币';
+            document.getElementById('startBtn').classList.remove('btn-danger');
+            document.getElementById('startBtn').classList.add('btn-primary');
+            const s = transfers.filter(t => t.status === 'success').length;
+            const f = transfers.filter(t => t.status === 'error').length;
+            log(`完成! 成功: ${s}/${transfers.length}${f > 0 ? `, 失败: ${f}` : ''}`, s > 0 ? 'success' : 'warn');
+
+            // 显示失败任务列表
+            showFailedTasks();
+        }
+
+        // 币种选择变化处理
+        function onCoinChange() {
+            const coinSelect = document.getElementById('coin');
+            const customCoinInput = document.getElementById('customCoin');
+            const selectedValue = coinSelect.value;
+
+            if (selectedValue === 'CUSTOM') {
+                customCoinInput.style.display = 'block';
+                customCoinInput.focus();
+            } else {
+                customCoinInput.style.display = 'none';
+                customCoinInput.value = '';
+                // 加载网络
+                clearTimeout(window.autoQueryTimer);
+                window.autoQueryTimer = setTimeout(() => {
+                    loadNetworksForCoin(selectedValue);
+                }, 300);
+            }
+        }
+
+        // 获取当前选中的币种（支持自定义）
+        function getSelectedCoin() {
+            const coinSelect = document.getElementById('coin');
+            const customCoinInput = document.getElementById('customCoin');
+            if (coinSelect.value === 'CUSTOM') {
+                return customCoinInput.value.toUpperCase().trim();
+            }
+            return coinSelect.value;
+        }
+
+        // 自定义币种输入事件
+        document.getElementById('customCoin').addEventListener('input', function () {
+            const coin = this.value.toUpperCase().trim();
+            this.value = coin;
+            clearTimeout(window.autoQueryTimer);
+            window.autoQueryTimer = setTimeout(() => {
+                if (coin) loadNetworksForCoin(coin);
+            }, 500);
+        });
+
+        // 网络变化时也自动查询
+        document.getElementById('network').addEventListener('change', function () {
+            clearTimeout(window.autoQueryTimer);
+            window.autoQueryTimer = setTimeout(() => {
+                if (document.getElementById('apiKey').value && document.getElementById('secretKey').value && document.getElementById('sessionToken').value) {
+                    refreshNetworkInfo();
+                }
+            }, 300);
+        });
+
+        log('请配置 API 并输入提币列表', 'info');
+    </script>
+</body>
+
+</html>
