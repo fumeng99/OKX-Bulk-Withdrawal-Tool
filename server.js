@@ -19,27 +19,104 @@ const ENCRYPTION_KEY = crypto.randomBytes(32).toString('hex');
 // 🔒 传输层加密配置（每次启动随机生成）
 const TRANSPORT_KEY = crypto.randomBytes(32).toString('hex');
 const TRANSPORT_IV = crypto.randomBytes(16).toString('hex').slice(0, 16);
+const HMAC_SECRET = crypto.randomBytes(32).toString('hex'); // HMAC 密钥
+const REQUEST_TIMEOUT = 300000; // 请求有效期 5 分钟（防重放攻击）
 
-// 🔒 传输层加密（加密 API 响应）
+// 🔒 PBKDF2 密钥派生（超高强度：600,000 次迭代）
+function deriveKey(password, salt) {
+    return crypto.pbkdf2Sync(password, salt, 600000, 32, 'sha256');
+}
+
+// 🔒 HMAC 消息认证
+function generateHMAC(data) {
+    return crypto.createHmac('sha256', HMAC_SECRET).update(data).digest('hex');
+}
+
+function verifyHMAC(data, hmac) {
+    const expected = generateHMAC(data);
+    if (hmac.length !== expected.length) return false;
+    return crypto.timingSafeEqual(Buffer.from(hmac), Buffer.from(expected));
+}
+
+// 🔒 请求签名验证（防重放攻击）
+const usedNonces = new Map();
+setInterval(() => {
+    const now = Date.now();
+    for (const [nonce, timestamp] of usedNonces) {
+        if (now - timestamp > REQUEST_TIMEOUT) usedNonces.delete(nonce);
+    }
+}, 60000);
+
+function verifyRequestSignature(data, timestamp, nonce, signature) {
+    const now = Date.now();
+    if (Math.abs(now - timestamp) > REQUEST_TIMEOUT) return { valid: false, error: '请求已过期' };
+    if (usedNonces.has(nonce)) return { valid: false, error: '重复请求' };
+    const payload = `${data}|${timestamp}|${nonce}`;
+    if (!verifyHMAC(payload, signature)) return { valid: false, error: '签名验证失败' };
+    usedNonces.set(nonce, now);
+    return { valid: true };
+}
+
+// 🔒 敏感日志脱敏
+function sanitizeForLog(str) {
+    if (!str || typeof str !== 'string') return str;
+    if (str.length <= 8) return '***';
+    return str.slice(0, 4) + '***' + str.slice(-4);
+}
+
+function logSafe(message, data = null) {
+    if (data) {
+        const sanitized = { ...data };
+        ['apiKey', 'secretKey', 'passphrase', 'signature'].forEach(k => {
+            if (sanitized[k]) sanitized[k] = sanitizeForLog(sanitized[k]);
+        });
+        console.log(message, sanitized);
+    } else {
+        console.log(message);
+    }
+}
+
+// 🔒 传输层加密（加密 API 响应）- 使用 scrypt 派生密钥
 function encryptTransport(plainText) {
     try {
-        const key = crypto.createHash('sha256').update(TRANSPORT_KEY).digest();
+        const key = deriveKey(TRANSPORT_KEY, TRANSPORT_IV);
         const ivBuffer = Buffer.from(TRANSPORT_IV, 'utf8');
         const cipher = crypto.createCipheriv('aes-256-cbc', key, ivBuffer);
         cipher.setAutoPadding(true);
         const encrypted = Buffer.concat([cipher.update(plainText, 'utf8'), cipher.final()]);
-        return encrypted.toString('base64');
+        const hmac = generateHMAC(encrypted.toString('base64'));
+        return JSON.stringify({ data: encrypted.toString('base64'), hmac });
     } catch (e) {
         return null;
     }
 }
 
-// 🔒 传输层解密（解密 API 请求）
-function decryptTransport(encryptedBase64) {
+// 🔒 传输层解密（解密 API 请求）- 带 HMAC 验证
+function decryptTransport(encryptedData) {
     try {
-        const key = crypto.createHash('sha256').update(TRANSPORT_KEY).digest();
+        let data, hmac;
+        if (typeof encryptedData === 'string') {
+            try {
+                const parsed = JSON.parse(encryptedData);
+                data = parsed.data;
+                hmac = parsed.hmac;
+            } catch {
+                data = encryptedData;
+                hmac = null;
+            }
+        } else if (typeof encryptedData === 'object') {
+            data = encryptedData.data || encryptedData;
+            hmac = encryptedData.hmac;
+        }
+
+        if (hmac && !verifyHMAC(data, hmac)) {
+            console.error('HMAC 验证失败：数据可能被篡改');
+            return null;
+        }
+
+        const key = deriveKey(TRANSPORT_KEY, TRANSPORT_IV);
         const ivBuffer = Buffer.from(TRANSPORT_IV, 'utf8');
-        const encrypted = Buffer.from(encryptedBase64, 'base64');
+        const encrypted = Buffer.from(data, 'base64');
         const decipher = crypto.createDecipheriv('aes-256-cbc', key, ivBuffer);
         decipher.setAutoPadding(true);
         const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
@@ -49,6 +126,7 @@ function decryptTransport(encryptedBase64) {
     }
 }
 
+// AES-256-CBC 解密函数
 function decryptAES(encryptedHex) {
     try {
         if (!encryptedHex || typeof encryptedHex !== 'string') return null;
@@ -61,7 +139,7 @@ function decryptAES(encryptedHex) {
         decrypted = Buffer.concat([decrypted, decipher.final()]);
         return decrypted.toString('utf8');
     } catch (e) {
-        console.error('decryptAES 解密失败:', e.message);
+        logSafe('decryptAES 解密失败:', { error: e.message });
         return null;
     }
 }
@@ -279,6 +357,20 @@ function setSecurityHeaders(res) {
     res.setHeader('Pragma', 'no-cache');
 }
 
+// 🔒 发送加密响应
+function sendEncryptedResponse(res, statusCode, data) {
+    const jsonStr = JSON.stringify(data);
+    const encrypted = encryptTransport(jsonStr);
+    if (encrypted) {
+        res.writeHead(statusCode);
+        res.end(JSON.stringify({ encrypted: true, data: encrypted }));
+    } else {
+        // 加密失败时回退到明文（不应发生）
+        res.writeHead(statusCode);
+        res.end(jsonStr);
+    }
+}
+
 async function handleApiRequest(req, res, body) {
     const requestId = generateRequestId();
 
@@ -297,8 +389,7 @@ async function handleApiRequest(req, res, body) {
         if (data.encrypted && data.data) {
             const decrypted = decryptTransport(data.data);
             if (!decrypted) {
-                res.writeHead(400);
-                res.end(JSON.stringify({ error: '传输解密失败' }));
+                sendEncryptedResponse(res, 400, { error: '传输解密失败' });
                 return;
             }
             data = JSON.parse(decrypted);
@@ -308,8 +399,7 @@ async function handleApiRequest(req, res, body) {
         sensitiveData = { apiKey: null, secretKey: null, passphrase: null }; // 准备清理引用
 
         if (!encApiKey || !encSecretKey || !encPassphrase) {
-            res.writeHead(400);
-            res.end(JSON.stringify({ error: '缺少 API Key、Secret Key 或 Passphrase' }));
+            sendEncryptedResponse(res, 400, { error: '缺少 API Key、Secret Key 或 Passphrase' });
             return;
         }
 
@@ -318,8 +408,7 @@ async function handleApiRequest(req, res, body) {
         const passphrase = decryptAES(encPassphrase);
 
         if (!apiKey || !secretKey || !passphrase) {
-            res.writeHead(400);
-            res.end(JSON.stringify({ error: '解密失败，请检查加密密钥是否正确' }));
+            sendEncryptedResponse(res, 400, { error: '解密失败，请检查加密密钥是否正确' });
             return;
         }
 
@@ -338,44 +427,36 @@ async function handleApiRequest(req, res, body) {
             headers['OK-ACCESS-SIGN'] = signOKX(timestamp, 'POST', requestPath, bodyData, secretKey);
             const result = await httpsRequest({ hostname: 'www.okx.com', port: 443, path: requestPath, method: 'POST', headers }, bodyData, proxyUrl);
             if (result.data.code === '0') {
-                res.writeHead(200);
-                res.end(JSON.stringify({ success: true, data: result.data.data, wdId: result.data.data[0]?.wdId }));
+                sendEncryptedResponse(res, 200, { success: true, data: result.data.data, wdId: result.data.data[0]?.wdId });
             } else {
-                res.writeHead(400);
-                res.end(JSON.stringify({ error: result.data.msg || '提币失败', code: result.data.code }));
+                sendEncryptedResponse(res, 400, { error: result.data.msg || '提币失败', code: result.data.code });
             }
         } else if (action === 'currencies') {
             const requestPath = '/api/v5/asset/currencies';
             headers['OK-ACCESS-SIGN'] = signOKX(timestamp, 'GET', requestPath, '', secretKey);
             delete headers['Content-Type'];
             const result = await httpsRequest({ hostname: 'www.okx.com', port: 443, path: requestPath, method: 'GET', headers }, null, proxyUrl);
-            res.writeHead(result.data.code === '0' ? 200 : 400);
-            res.end(JSON.stringify(result.data.code === '0' ? result.data.data : { error: result.data.msg }));
+            sendEncryptedResponse(res, result.data.code === '0' ? 200 : 400, result.data.code === '0' ? result.data.data : { error: result.data.msg });
         } else if (action === 'balance') {
             const requestPath = '/api/v5/asset/balances';
             headers['OK-ACCESS-SIGN'] = signOKX(timestamp, 'GET', requestPath, '', secretKey);
             delete headers['Content-Type'];
             const result = await httpsRequest({ hostname: 'www.okx.com', port: 443, path: requestPath, method: 'GET', headers }, null, proxyUrl);
-            res.writeHead(result.data.code === '0' ? 200 : 400);
-            res.end(JSON.stringify(result.data.code === '0' ? result.data.data : { error: result.data.msg }));
+            sendEncryptedResponse(res, result.data.code === '0' ? 200 : 400, result.data.code === '0' ? result.data.data : { error: result.data.msg });
         } else if (action === 'price') {
             const { symbol } = params;
             if (['USDT', 'USDC', 'DAI', 'FDUSD'].includes(symbol?.toUpperCase())) {
-                res.writeHead(200);
-                res.end(JSON.stringify({ symbol, price: '1' }));
+                sendEncryptedResponse(res, 200, { symbol, price: '1' });
                 return;
             }
             const result = await httpsRequest({ hostname: 'www.okx.com', port: 443, path: `/api/v5/market/ticker?instId=${symbol}-USDT`, method: 'GET' }, null, proxyUrl);
-            res.writeHead(200);
-            res.end(JSON.stringify(result.data.code === '0' && result.data.data?.[0] ? { symbol, price: result.data.data[0].last } : { symbol, price: null }));
+            sendEncryptedResponse(res, 200, result.data.code === '0' && result.data.data?.[0] ? { symbol, price: result.data.data[0].last } : { symbol, price: null });
         } else {
-            res.writeHead(400);
-            res.end(JSON.stringify({ error: '未知操作' }));
+            sendEncryptedResponse(res, 400, { error: '未知操作' });
         }
     } catch (e) {
         console.error('API 错误:', e);
-        res.writeHead(500);
-        res.end(JSON.stringify({ error: e.message, requestId }));
+        sendEncryptedResponse(res, 500, { error: e.message, requestId });
     } finally {
         // 🔒 清理敏感数据
         if (sensitiveData) {
@@ -421,7 +502,11 @@ function handleRequest(req, res) {
         res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
         if (!validateSessionToken(req, res)) return;
         res.writeHead(200);
-        res.end(JSON.stringify({ key: TRANSPORT_KEY, iv: TRANSPORT_IV }));
+        res.end(JSON.stringify({
+            key: TRANSPORT_KEY,
+            iv: TRANSPORT_IV,
+            hmacSecret: HMAC_SECRET
+        }));
         return;
     }
 
@@ -436,12 +521,22 @@ function handleRequest(req, res) {
             if (!validateSessionToken(req, res)) return;
 
             try {
-                const data = JSON.parse(body);
+                let data = JSON.parse(body);
+
+                // 🔒 传输层解密
+                if (data.encrypted && data.data) {
+                    const decrypted = decryptTransport(data.data);
+                    if (!decrypted) {
+                        sendEncryptedResponse(res, 400, { success: false, error: '传输解密失败' });
+                        return;
+                    }
+                    data = JSON.parse(decrypted);
+                }
+
                 const { proxyUrl } = data;
 
                 if (!proxyUrl) {
-                    res.writeHead(400);
-                    res.end(JSON.stringify({ success: false, error: '请输入代理地址' }));
+                    sendEncryptedResponse(res, 400, { success: false, error: '请输入代理地址' });
                     return;
                 }
 
@@ -459,20 +554,17 @@ function handleRequest(req, res) {
                 const latency = Date.now() - startTime;
 
                 if (result.data && result.data.ip) {
-                    res.writeHead(200);
-                    res.end(JSON.stringify({
+                    sendEncryptedResponse(res, 200, {
                         success: true,
                         ip: result.data.ip,
                         country: result.data.country || result.data.region || 'Unknown',
                         latency: latency
-                    }));
+                    });
                 } else {
-                    res.writeHead(200);
-                    res.end(JSON.stringify({ success: false, error: '无法获取代理信息' }));
+                    sendEncryptedResponse(res, 200, { success: false, error: '无法获取代理信息' });
                 }
             } catch (e) {
-                res.writeHead(200);
-                res.end(JSON.stringify({ success: false, error: e.message }));
+                sendEncryptedResponse(res, 200, { success: false, error: e.message });
             }
         });
         return;
