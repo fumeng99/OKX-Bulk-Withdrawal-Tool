@@ -1147,6 +1147,96 @@
         let networkInfoCache = {}; // 缓存网络信息
         let coinPrecisionCache = {}; // 缓存币种精度
 
+        // 🔒 传输层加密配置（从服务端动态获取）
+        let TRANSPORT_KEY = null;
+        let TRANSPORT_IV = null;
+        let transportConfigLoaded = false;
+
+        // 🔒 加载传输层密钥配置
+        async function loadTransportConfig() {
+            const sessionToken = document.getElementById('sessionToken').value.trim().replace(/-/g, '');
+            if (!sessionToken || sessionToken.length !== 32) {
+                return false;
+            }
+            try {
+                const res = await fetch('/api/transport-config', {
+                    method: 'GET',
+                    headers: { 'X-Session-Token': sessionToken }
+                });
+                const config = await res.json();
+                if (config.key && config.iv) {
+                    TRANSPORT_KEY = config.key;
+                    TRANSPORT_IV = config.iv;
+                    transportConfigLoaded = true;
+                    console.log('🔒 传输层密钥已加载');
+                    return true;
+                }
+            } catch (e) {
+                console.error('加载传输配置失败:', e);
+            }
+            return false;
+        }
+
+        // 🔒 传输层加密（使用 CryptoJS 兼容格式）
+        async function encryptTransport(plainText) {
+            if (!transportConfigLoaded) {
+                console.error('传输配置未加载');
+                return null;
+            }
+            try {
+                // 使用 SHA256 哈希密钥
+                const keyBytes = new Uint8Array(32);
+                const keyHash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(TRANSPORT_KEY));
+                keyBytes.set(new Uint8Array(keyHash));
+
+                const ivBytes = new TextEncoder().encode(TRANSPORT_IV);
+
+                const cryptoKey = await crypto.subtle.importKey(
+                    'raw', keyBytes, { name: 'AES-CBC' }, false, ['encrypt']
+                );
+
+                const data = new TextEncoder().encode(plainText);
+                const encrypted = await crypto.subtle.encrypt(
+                    { name: 'AES-CBC', iv: ivBytes }, cryptoKey, data
+                );
+
+                // 转为 base64
+                return btoa(String.fromCharCode(...new Uint8Array(encrypted)));
+            } catch (e) {
+                console.error('传输层加密失败:', e);
+                return null;
+            }
+        }
+
+        // 🔒 传输层解密
+        async function decryptTransport(encryptedBase64) {
+            if (!transportConfigLoaded) {
+                console.error('传输配置未加载');
+                return null;
+            }
+            try {
+                const keyBytes = new Uint8Array(32);
+                const keyHash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(TRANSPORT_KEY));
+                keyBytes.set(new Uint8Array(keyHash));
+
+                const ivBytes = new TextEncoder().encode(TRANSPORT_IV);
+
+                const cryptoKey = await crypto.subtle.importKey(
+                    'raw', keyBytes, { name: 'AES-CBC' }, false, ['decrypt']
+                );
+
+                const encrypted = Uint8Array.from(atob(encryptedBase64), c => c.charCodeAt(0));
+                const decrypted = await crypto.subtle.decrypt(
+                    { name: 'AES-CBC', iv: ivBytes }, cryptoKey, encrypted
+                );
+
+                return new TextDecoder().decode(decrypted);
+            } catch (e) {
+                console.error('传输层解密失败:', e);
+                return null;
+            }
+        }
+
         // 选项卡切换函数
         function switchConfigTab(tabName) {
             // 更新选项卡按钮状态
@@ -1785,6 +1875,9 @@
                 statusEl.innerHTML = '<span style="color: var(--danger);">❌ 同步失败</span>';
                 log(`同步失败: ${e.message}`, 'error');
             }
+
+            // 🔒 同时加载传输层密钥
+            await loadTransportConfig();
         }
 
         // AES-256-CBC 加密函数
@@ -1876,10 +1969,15 @@
             return token;
         }
 
-        // 封装的 API 请求函数 (OKX 版本 - 包含 passphrase)
+        // 封装的 API 请求函数 (OKX 版本 - 包含 passphrase 和传输层加密)
         async function apiRequest(action, params = {}) {
             const sessionToken = getSessionToken();
             if (!sessionToken) return null;
+
+            // 确保传输层配置已加载
+            if (!transportConfigLoaded) {
+                await loadTransportConfig();
+            }
 
             const apiKey = document.getElementById('apiKey').value.trim();
             const secretKey = document.getElementById('secretKey').value.trim();
@@ -1902,13 +2000,29 @@
                 return null;
             }
 
+            // 构建请求数据
+            const requestData = { action, apiKey: encApiKey, secretKey: encSecretKey, passphrase: encPassphrase, proxyUrl, params };
+
+            // 🔒 传输层加密
+            let body;
+            if (transportConfigLoaded) {
+                const encryptedData = await encryptTransport(JSON.stringify(requestData));
+                if (encryptedData) {
+                    body = JSON.stringify({ encrypted: true, data: encryptedData });
+                } else {
+                    body = JSON.stringify(requestData);
+                }
+            } else {
+                body = JSON.stringify(requestData);
+            }
+
             const response = await fetch(API_URL, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-Session-Token': sessionToken
                 },
-                body: JSON.stringify({ action, apiKey: encApiKey, secretKey: encSecretKey, passphrase: encPassphrase, proxyUrl, params })
+                body: body
             });
 
             return response;
